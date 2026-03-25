@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Agent for Healthcare Providers</title>
+<style>
+  :root {
+    /* Teal & Midnight Blue Theme */
+    --bg-main: #020617; /* Slate 950 */
+    --bg-panel: #0f172a; /* Slate 900 */
+    --bg-card: #1e293b; /* Slate 800 */
+    --border: #334155; /* Slate 700 */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    
+    --primary: #0ea5e9; /* Sky Blue */
+    --primary-glow: rgba(14, 165, 233, 0.4);
+    --secondary: #14b8a6; /* Teal */
+    
+    --intent-blue: rgba(56, 189, 248, 0.15);
+    --intent-blue-txt: #38bdf8;
+    --intent-green: rgba(52, 211, 153, 0.15);
+    --intent-green-txt: #34d399;
+    --intent-purple: rgba(167, 139, 250, 0.15);
+    --intent-purple-txt: #a78bfa;
+    --intent-orange: rgba(251, 146, 60, 0.15);
+    --intent-orange-txt: #fb923c;
+    --intent-red: rgba(248, 113, 113, 0.15);
+    --intent-red-txt: #f87171;
+
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: var(--bg-main); 
+    color: var(--text-main); 
+    font-family: var(--font); 
+    height: 100vh; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+  }
+
+  /* --- HEADER --- */
+  header {
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    box-shadow: 0 0 15px var(--primary-glow);
+  }
+  .brand-title { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.5px; }
+  .brand-subtitle { font-size: 0.75rem; color: var(--secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  
+  .call-timer {
+    display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 1.1rem;
+  }
+  .pulse-dot {
+    width: 10px; height: 10px; background: #ef4444; border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+  /* --- LAYOUT --- */
+  .dashboard {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* --- LEFT PANEL: CONTEXT --- */
+  .sidebar {
+    width: 340px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  .section-title { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;}
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .context-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .kv-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+  .kv-row:last-child { margin-bottom: 0; }
+  .kv-label { color: var(--text-muted); }
+  .kv-val { font-weight: 600; color: var(--text-main); text-align: right; }
+
+  .metric-bar { margin-top: 16px; }
+  .metric-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
+  .bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--secondary); border-radius: 3px; }
+
+  /* --- RIGHT PANEL: CHAT --- */
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-main);
+    position: relative;
+  }
+
+  .chat-window {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+  }
+
+  /* Messages */
+  .msg-row { display: flex; width: 100%; gap: 16px; }
+  .msg-row.agent { justify-content: flex-start; }
+  .msg-row.user { justify-content: flex-end; }
+  
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .avatar.agent { background: rgba(14, 165, 233, 0.2); border: 1px solid var(--primary); }
+  .avatar.user { background: rgba(255, 255, 255, 0.1); border: 1px solid var(--text-muted); }
+
+  .msg-content { max-width: 70%; display: flex; flex-direction: column; gap: 4px; }
+  .msg-row.user .msg-content { align-items: flex-end; }
+
+  .bubble {
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    position: relative;
+  }
+  .agent .bubble {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+    color: var(--text-main);
+  }
+  .user .bubble {
+    background: linear-gradient(135deg, var(--primary), #0284c7);
+    color: white;
+    border-top-right-radius: 4px;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+  }
+
+  .msg-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+  
+  .intent-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+    margin-bottom: 8px; border: 1px solid currentColor;
+  }
+  .tech-stats { font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+
+  /* Input Area */
+  .input-area {
+    padding: 20px 32px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  input[type="text"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+  }
+  
+  .btn {
+    width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; border: none; font-size: 20px;
+  }
+  .btn-send { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
+  .btn-send:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3); }
+  .btn-mic { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); }
+  .btn-mic:hover { background: var(--border); }
+
+  /* Utilities */
+  .blue { background: var(--intent-blue); color: var(--intent-blue-txt); }
+  .green { background: var(--intent-green); color: var(--intent-green-txt); }
+  .purple { background: var(--intent-purple); color: var(--intent-purple-txt); }
+  .orange { background: var(--intent-orange); color: var(--intent-orange-txt); }
+  .red { background: var(--intent-red); color: var(--intent-red-txt); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">🎙️</div>
+    <div>
+      <div class="brand-title">Voice AI Portal</div>
+      <div class="brand-subtitle">Provider Services</div>
+    </div>
+  </div>
+  <div class="call-timer">
+    <div class="pulse-dot"></div>
+    <span id="timer">01:42</span>
+  </div>
+</header>
+
+<div class="dashboard">
+  
+  <!-- LEFT PANEL: CALL CONTEXT -->
+  <aside class="sidebar">
+    
+    <div>
+      <div class="section-title">Caller Profile</div>
+      <div class="context-card">
+        <div class="kv-row"><span class="kv-label">Entity</span><span class="kv-val">Dr. Smith Clinic</span></div>
+        <div class="kv-row"><span class="kv-label">NPI</span><span class="kv-val" style="color:var(--primary)">#1098234712</span></div>
+        <div class="kv-row"><span class="kv-label">Auth Level</span><span class="kv-val" style="color:var(--secondary)">Verified</span></div>
+        <div class="kv-row"><span class="kv-label">Callback</span><span class="kv-val">(555) 123-4567</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Patient Context (Detected)</div>
+      <div class="context-card">
+        <div class="kv-row"><span class="kv-label">Name</span><span class="kv-val">John Doe</span></div>
+        <div class="kv-row"><span class="kv-label">DOB</span><span class="kv-val">05/14/1980</span></div>
+        <div class="kv-row"><span class="kv-label">Member ID</span><span class="kv-val">H993821</span></div>
+        <div class="kv-row"><span class="kv-label">Plan Type</span><span class="kv-val">Medicare Adv.</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Live Telemetry</div>
+      <div class="context-card">
+        <div class="metric-bar">
+          <div class="metric-header"><span>ASR Confidence</span><span>96%</span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width: 96%"></div></div>
+        </div>
+        <div class="metric-bar">
+          <div class="metric-header"><span>Caller Sentiment</span><span style="color: var(--secondary)">Positive</span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width: 80%; background: var(--secondary)"></div></div>
+        </div>
+        <div class="metric-bar">
+          <div class="metric-header"><span>Latency (avg)</span><span>420ms</span></div>
+          <div class="bar-bg"><div class="bar-fill" style="width: 42%; background: var(--primary)"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- RIGHT PANEL: CHAT INTERFACE -->
+  <main class="main-content">
+    
+    <div class="chat-window" id="chatWindow">
+      <!-- Initial Greeting -->
+      <div class="msg-row agent">
+        <div class="avatar agent">🤖</div>
+        <div class="msg-content">
+          <div class="bubble">
+            Hello! I'm the Provider Services Voice Assistant. I see you are calling from Dr. Smith's office. How can I assist you with your patients today?
+          </div>
+          <div class="msg-meta">AI Agent · 10:00 AM</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <button class="btn btn-mic" title="Simulate Voice Input">🎤</button>
+      <input type="text" id="inputField" placeholder="Type a provider query (e.g. 'check claim status' or 'prior auth needed')..." onkeypress="handleEnter(event)">
+      <button class="btn btn-send" onclick="sendMessage()">➤</button>
+    </div>
+
+  </main>
+
+</div>
+
+<script>
+  // Simple call timer logic
+  let seconds = 102; // starts at 01:42
+  setInterval(() => {
+    seconds++;
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${m}:${s}`;
+  }, 1000);
+
+  // Intent Responses Database
+  const intentResponses = {
+    eligibility: {
+      chip: "Eligibility Check", color: "blue",
+      text: "I can help with that. Are you calling to verify active coverage for John Doe?"
+    },
+    claim: {
+      chip: "Claim Status", color: "green",
+      text: "I found a recent claim for date of service October 12th. It was processed and paid on October 15th. Would you like the EFT trace number?"
+    },
+    benefits: {
+      chip: "Benefits Inquiry", color: "purple",
+      text: "Under the current Medicare Advantage plan, outpatient specialist visits have a $20 copay. The deductible for this year has already been met."
+    },
+    referral: {
+      chip: "Referral Request", color: "orange",
+      text: "To initiate a referral, please provide the receiving specialist's NPI number and the primary ICD-10 diagnosis code."
+    },
+    prior: {
+      chip: "Prior Authorization", color: "red",
+      text: "An MRI for that specific diagnosis code usually requires clinical review. Would you like me to send a link to the intake form to your registered fax or email?"
+    },
+    fallback: {
+      chip: "General Inquiry", color: "blue",
+      text: "I'm sorry, I didn't quite catch that specific request. Could you clarify if you need help with claims, eligibility, or authorizations?"
+    }
+  };
+
+  function handleEnter(e) {
+    if (e.key === 'Enter') sendMessage();
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('inputField');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const chatWindow = document.getElementById('chatWindow');
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // 1. Append User Message
+    chatWindow.innerHTML += `
+      <div class="msg-row user">
+        <div class="msg-content">
+          <div class="bubble">${text}</div>
+          <div class="msg-meta">Provider · ${now}</div>
+        </div>
+        <div class="avatar user">👤</div>
+      </div>
+    `;
+
+    input.value = '';
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    // 2. Intent Detection Logic
+    const lower = text.toLowerCase();
+    let resp = intentResponses.fallback;
+    
+    if (lower.includes('claim')) resp = intentResponses.claim;
+    else if (lower.includes('benefit') || lower.includes('coverage') || lower.includes('copay')) resp = intentResponses.benefits;
+    else if (lower.includes('referral') || lower.includes('refer')) resp = intentResponses.referral;
+    else if (lower.includes('prior') || lower.includes('auth') || lower.includes('mri')) resp = intentResponses.prior;
+    else if (lower.includes('eligibility') || lower.includes('active')) resp = intentResponses.eligibility;
+
+    // 3. Simulate Agent Processing & Response
+    setTimeout(() => {
+      const conf = (91 + Math.random() * 8).toFixed(1);
+      const rt = (0.4 + Math.random() * 0.5).toFixed(2);
+      
+      chatWindow.innerHTML += `
+        <div class="msg-row agent">
+          <div class="avatar agent">🤖</div>
+          <div class="msg-content">
+            <div class="bubble">
+              <span class="intent-chip ${resp.color}">🎯 ${resp.chip} · ${conf}% Match</span><br>
+              ${resp.text}
+              <div class="tech-stats">
+                Processing Latency: ${rt}s · NLP Model: MedBERT-v2
+              </div>
+            </div>
+            <div class="msg-meta">AI Agent · ${now}</div>
+          </div>
+        </div>
+      `;
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }, 600 + Math.random() * 400); // 600ms-1s simulated delay
+  }
+</script>
+</body>
+</html>
